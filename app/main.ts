@@ -1,30 +1,46 @@
+import { PatternResult, Patterns } from "./Pattern";
+
 const args = process.argv;
 const pattern = args[3];
-
-const inputLine: string = await Bun.stdin.text();
-
-function matchPattern(inputLine: string, pattern: string): boolean {
-  console.log(pattern)
-  if (pattern.length === 1) {
-    return inputLine.includes(pattern);
-  } 
-  else {
-    const regexp = new RegExp(pattern);
-    return regexp.test(inputLine);
-  }
-}
 
 if (args[2] !== "-E") {
   console.log("Expected first argument to be '-E'");
   process.exit(1);
 }
 
-// You can use print statements as follows for debugging, they'll be visible when running tests.
-console.log("Logs from your program will appear here!");
-
-// Uncomment this block to pass the first stage
-if (matchPattern(inputLine, pattern)) {
-  process.exit(0);
-} else {
-  process.exit(1);
+function matchPatternFull(fullInput: string, pattern: string): boolean {
+  const lines = fullInput.split("\n");
+  return lines.filter(it => it !== "")
+    .every(line => matchPatternLine(line, pattern));
 }
+
+export function matchPatternLine(line: string, pattern: string): PatternResult | null {
+  let remainingInput = line.trim();
+  let remainingPattern = pattern.trim();
+  let result: PatternResult | null = null;
+  
+  while (remainingPattern.length > 0) {
+    const results = Patterns
+      .map(it => it.resolve(remainingPattern, remainingInput, line))
+      .filter(it => it.matchInput != null); // Replaced _.isNil with native check
+
+    result = results.find(it => it.matchInput !== null) ?? null;
+    if (result == null) return null; // Replaced _.isNil with native check
+    
+    remainingInput = result.remainingInput;
+    remainingPattern = result.remainingPattern;
+  }
+
+  return result;
+}
+
+async function main() {
+  const inputLine: string = await Bun.stdin.text();
+  if (!matchPatternFull(inputLine, pattern)) {
+    console.log("You have failed me!", inputLine, pattern);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+main().then(r => console.log(r));
